@@ -162,7 +162,7 @@ View.prototype = {
     slide: function(){
       var that = this;
       
-      ['leave', 'route'].forEach(function(target){
+      ['leave'].forEach(function(target){
         var text = that[target].text;
         var pos = text.position();
         text.animate('position', new Vector2(-144, pos.y), 200)
