@@ -5,7 +5,7 @@
         "configurable"
     ],
     "companyName": "sideroad.jp@gmail.com",
-    "longName": "TrainNavigation",
+    "longName": "Train Navigation",
     "projectType": "pebblejs",
     "resources": {
         "media": [
@@ -32,7 +32,7 @@
             }
         ]
     },
-    "shortName": "TrainNavigation",
+    "shortName": "Train Navigation",
     "uuid": "3d5e0e8f-94eb-4e71-9498-9c0d8d8817ca",
     "versionCode": 1,
     "versionLabel": "1.0",

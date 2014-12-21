@@ -105,8 +105,9 @@ View.prototype = {
       update: function(){
         var page = data.page;
         var hms = getHms(data.ride[page]);
+        var route = data.routes[page] || {departure: '', arrival: ''};
         this.text.text('Ride: '+ hms + '\n'+
-                       data.routes[page].departure + ' -> ' + data.routes[page].arrival);
+                       route.departure + ' -> ' + route.arrival);
       }
     },
     to:{
@@ -136,17 +137,17 @@ View.prototype = {
         if(data.page !== 0) {
           data.page--;
           data.id = data.routes[data.page].id;
-          that.slide();
+          that.slide('next');
         }
       });
       main.on('click', 'down', function(){
         if(data.page < data.routes.length -1) {
           data.page++;
           data.id = data.routes[data.page].id;
-          that.slide();
+          that.slide('prev');
         }
       });
-      main.on('longClick', 'select', function(){
+      main.on('longClick', 'down', function(){
         data.select.page = 0;
         data.select.to = data.stations[data.select.page];
         select.to.text(data.select.to);
@@ -159,15 +160,17 @@ View.prototype = {
       this.leave.update();
       this.route.update();
     },
-    slide: function(){
+    slide: function(direct){
       var that = this;
       
       ['leave', 'route'].forEach(function(target){
         var text = that[target].text;
         var pos = text.position();
-        text.color('white');
+        pos.x = (direct==='next'? -1 : 1) * 144;
+        pos.addSelf(pos);
         that[target].update();
-        text.color('black');
+        pos.x = 0;
+        text.animate({position: pos}, 200);
       });
     }
   },

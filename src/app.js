@@ -33,11 +33,13 @@ var data = {
     to: (Settings.option('vibe')||{to:'21:00'}).to,
   },
   walk: 0,
-  ride: [ 0, 0, 0 ],
-  routes: [{},{},{}],
+  departureDate: [],
+  ride: [],
+  routes: [],
   page: 0,
   latest: '',
-  id: ''
+  id: '',
+  limit: 2
 };
 var getTo = function(){
   return data.roundtrip.filter(function(station){
@@ -68,10 +70,9 @@ var tick = require('tick');
 // Initialize view
 var view = new View(data);
 view.show('nowLoading');
-
-var getRideTime = function(departureTime){
-  var departure = new Date(),
-      now = new Date();
+var getDepartureDate = function(departureTime){
+    var departure = new Date(),
+        now = new Date();
   departure.setHours(departureTime.split(':')[0]);
   departure.setMinutes(departureTime.split(':')[1]);
   departure.setSeconds(0);
@@ -80,11 +81,16 @@ var getRideTime = function(departureTime){
   if( departure < now ){
     departure.setTime(departure.getTime()+86400000);
   }
+  return departure;
+};
+var getRideTime = function(departureTime){
+  var departure = getDepartureDate(departureTime),
+      now = new Date();
   return ( departure - now ) / 1000;
 };
 
 var isNowLoading = false;
-var updateRoute = function(){
+var updateRoute = function(calls){
   
   if(!data.from || isNowLoading) {
     return;
@@ -94,17 +100,17 @@ var updateRoute = function(){
     Settings.data('to', data.to);
     
   }
-  var now = new Date(),
+  var next = new Date(),
       url;
-  now.setTime(now.getTime()+(data.walk/2*1000));
+  next.setTime(next.getTime()+(data.walk/data.limit*1000));
   url = 'http://train-route.herokuapp.com/route/'+
       encodeURIComponent(data.from)+'/'+
       encodeURIComponent(data.to)+'/'+
-      (now.getFullYear())+
-      ('0'+(now.getMonth()+1)).slice(-2)+
-      ('0'+(now.getDate())).slice(-2)+'/'+
-      ('0'+(now.getHours())).slice(-2)+
-      ('0'+(now.getMinutes())).slice(-2)+'/0/1/';
+      (next.getFullYear())+
+      ('0'+(next.getMonth()+1)).slice(-2)+
+      ('0'+(next.getDate())).slice(-2)+'/'+
+      ('0'+(next.getHours())).slice(-2)+
+      ('0'+(next.getMinutes())).slice(-2)+'/0/1/'+(calls||'1')+'/';
   console.log(url);
   isNowLoading = true;
   ajax({
@@ -115,13 +121,14 @@ var updateRoute = function(){
     if(direction.routes[0].departure){
       data.routes = direction.routes;
       data.routes.forEach(function(route, i){
+        data.departureDate[i] = getDepartureDate(route.departure||0);
         data.ride[i] = getRideTime(route.departure||0);
         console.log(data.ride[i]);
       });
       data.latest = data.routes[0].departure;
       data.page = data.routes.reduce(function(page, route, index){
         if(route.id === data.id){
-          return index; 
+          return index;
         }
         return page;
       }, 0);
@@ -181,7 +188,7 @@ var prev;
 tick(function(){
     // Route information should be updated when ride time have past
   data.ride.forEach(function(time){
-    if(time < 0){
+    if(time - (data.walk / data.limit) < 0){
       updateRoute();
     }
   });
@@ -209,13 +216,11 @@ tick(function(){
   if(from <= now && to >= now && 0 >= vibetime && vibed != data.latest ){
     vibed = data.latest;
     Vibe.vibrate();
-    
   }
   
   view.main.update();
 }, 1000);
 view.wind.main.on('accelTap', function(){
   updateLocation();
-  updateRoute();
+  updateRoute(Math.ceil(data.routes.length / 3 ));
 });
-
