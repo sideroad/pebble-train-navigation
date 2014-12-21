@@ -165,13 +165,10 @@ View.prototype = {
       ['leave', 'route'].forEach(function(target){
         var text = that[target].text;
         var pos = text.position();
-        text.animate('color', 'white', 200)
-            .queue(function(next){
-              that[target].update();
-              next();
-            })
-            .animate('color', 'black', 200);
-      });      
+        text.color('white');
+        that[target].update();
+        text.color('black');
+      });
     }
   },
   error: {
