@@ -162,7 +162,7 @@ View.prototype = {
     slide: function(){
       var that = this;
       
-      ['leave'].forEach(function(target){
+      ['leave', 'route'].forEach(function(target){
         var text = that[target].text;
         var pos = text.position();
         text.animate('color', 'white', 200)
@@ -170,7 +170,7 @@ View.prototype = {
               that[target].update();
               next();
             })
-            .animate('color', 'white', 200);
+            .animate('color', 'black', 200);
       });      
     }
   },
