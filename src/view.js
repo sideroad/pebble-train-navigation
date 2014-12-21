@@ -165,12 +165,12 @@ View.prototype = {
       ['leave'].forEach(function(target){
         var text = that[target].text;
         var pos = text.position();
-        text.animate('position', new Vector2(-144, pos.y), 200)
+        text.animate('color', 'white', 200)
             .queue(function(next){
               that[target].update();
               next();
             })
-            .animate('position', new Vector2(0, pos.y), 200);
+            .animate('color', 'white', 200);
       });      
     }
   },
