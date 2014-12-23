@@ -31,6 +31,7 @@ var data = {
     before: (Settings.option('vibe')||{before:3}).before,
     from: (Settings.option('vibe')||{from:'00:00'}).from,
     to: (Settings.option('vibe')||{to:'21:00'}).to,
+    last: (Settings.option('vibe')||{before:15}).last
   },
   walk: 0,
   departureDate: [],
@@ -39,7 +40,9 @@ var data = {
   page: 0,
   latest: '',
   id: '',
-  limit: 2
+  last: {
+    ride: 0
+  }
 };
 var getTo = function(){
   return data.roundtrip.filter(function(station){
@@ -76,6 +79,7 @@ var getDepartureDate = function(departureTime){
   departure.setHours(departureTime.split(':')[0]);
   departure.setMinutes(departureTime.split(':')[1]);
   departure.setSeconds(0);
+  now.setSeconds(0);
 
   // To prevent bug after 00:00 AM
   if( departure < now ){
@@ -90,7 +94,7 @@ var getRideTime = function(departureTime){
 };
 
 var isNowLoading = false;
-var updateRoute = function(calls){
+var updateRoute = function(calls, page){
   
   if(!data.from || isNowLoading) {
     return;
@@ -102,7 +106,7 @@ var updateRoute = function(calls){
   }
   var next = new Date(),
       url;
-  next.setTime(next.getTime()+(data.walk/data.limit*1000));
+  
   url = 'http://train-route.herokuapp.com/route/'+
       encodeURIComponent(data.from)+'/'+
       encodeURIComponent(data.to)+'/'+
@@ -126,13 +130,14 @@ var updateRoute = function(calls){
         console.log(data.ride[i]);
       });
       data.latest = data.routes[0].departure;
-      data.page = data.routes.reduce(function(page, route, index){
+      data.page = page || data.routes.reduce(function(page, route, index){
         if(route.id === data.id){
           return index;
         }
         return page;
       }, 0);
       data.id = data.routes[data.page].id;
+      console.log('Route lengh: '+direction.routes.length);
       view.show('main');
     } else {
       view.show('error');
@@ -142,6 +147,48 @@ var updateRoute = function(calls){
     view.show('error');
   });
 };
+
+var updateLastTrain = function(){
+    var next = new Date(),
+      url;
+  
+  url = 'http://train-route.herokuapp.com/route/'+
+      encodeURIComponent(data.from)+'/'+
+      encodeURIComponent(data.to)+'/'+
+      (next.getFullYear())+
+      ('0'+(next.getMonth()+1)).slice(-2)+
+      ('0'+(next.getDate())).slice(-2)+'/'+
+      ('0'+(next.getHours())).slice(-2)+
+      ('0'+(next.getMinutes())).slice(-2)+'/0/2/1/';
+  console.log(url);
+  isNowLoading = true;
+  ajax({
+    url: url,
+    type: 'json'
+  }, function(direction){
+    isNowLoading = false;
+    if(direction.routes[0].departure){
+      var route = direction.routes[0];
+      var ride;
+      var departureDate;
+      departureDate = getDepartureDate(route.departure||0);
+      ride = getRideTime(route.departure||0);
+      console.log(ride);
+      data.last = {
+        departureDate: departureDate,
+        ride: ride,
+        route: route
+      };
+      view.show('last');
+    } else {
+      view.show('error');
+    }
+  }, function(err){
+    isNowLoading = false;
+    view.show('error');
+  });
+};
+
 
 var updateLocation = function(){
     console.log(data.coords.lat, data.coords.lng);
@@ -186,41 +233,109 @@ tick(function(){
 
 var prev;
 tick(function(){
+  
+  if(view.displayed === 'last'){
     // Route information should be updated when ride time have past
-  data.ride.forEach(function(time){
-    if(time - (data.walk / data.limit) < 0){
-      updateRoute();
+    if(data.last.ride - (data.walk / data.limit) < 0){
+      updateLastTrain();
     }
-  });
-  if(data.to != prev){
-    prev = data.to;
-    updateRoute();
+    if(data.to != prev){
+      prev = data.to;
+      updateLastTrain();
+    }
+  } else {
+    // Route information should be updated when ride time have past
+    data.ride.forEach(function(time){
+      if(time - (data.walk / data.limit) < 0){
+        updateRoute();
+      }
+    });
+    if(data.to != prev){
+      prev = data.to;
+      updateRoute();
+    }    
   }
 }, 3000);
 
 var Vibe = require('ui/vibe');
 var vibed = '';
-tick(function(){  
+var vibefrom = new Date();
+var vibeto = new Date();
+vibefrom.setHours(data.vibe.from.split(':')[0]);
+vibefrom.setMinutes(data.vibe.from.split(':')[1]);
+vibeto.setHours(data.vibe.to.split(':')[0]);
+vibeto.setMinutes(data.vibe.to.split(':')[1]);
+
+tick(function(){
   data.routes.forEach(function(route, i){
     data.ride[i]--;
   });
+  data.last.ride--;
   var now = new Date();
-  var from = new Date();
-  var to = new Date();
-  var vibetime = data.ride[0] - data.walk - (data.vibe.before * 60);
-  from.setHours(data.vibe.from.split(':')[0]);
-  from.setMinutes(data.vibe.from.split(':')[1]);
-  to.setHours(data.vibe.to.split(':')[0]);
-  to.setMinutes(data.vibe.to.split(':')[1]);
+  var vibetime;
+
+  if(view.displayed === 'main'){
+    vibetime = data.ride[0] - data.walk - (data.vibe.before * 60);  
+    if(vibefrom <= now && vibeto >= now && 0 >= vibetime && vibed != data.latest ){
+      vibed = data.latest;
+      Vibe.vibrate();
+      vibefrom = new Date();
+      vibeto = new Date();
+      vibefrom.setHours(data.vibe.from.split(':')[0]);
+      vibefrom.setMinutes(data.vibe.from.split(':')[1]);
+      vibeto.setHours(data.vibe.to.split(':')[0]);
+      vibeto.setMinutes(data.vibe.to.split(':')[1]);
+    }
   
-  if(from <= now && to >= now && 0 >= vibetime && vibed != data.latest ){
-    vibed = data.latest;
-    Vibe.vibrate();
+    view.main.update();
+  } else if(view.displayed === 'last' ){
+    vibetime = data.last.ride - data.walk - (data.vibe.last * 60);  
+    if(vibetime <= 0 && vibed != data.latest) {
+      Vibe.vibrate('long');
+    }
+    view.last.update();
   }
-  
-  view.main.update();
 }, 1000);
+
+//Interaction Main
 view.wind.main.on('accelTap', function(){
   updateLocation();
-  updateRoute(Math.ceil(data.routes.length / 3 ));
+  updateRoute(data.routes.length);
+});
+view.wind.main.on('click', 'up', function(){
+  if(data.page !== 0) {
+    data.page--;
+    data.id = data.routes[data.page].id;
+    view.main.slide('prev');
+  }
+});
+view.wind.main.on('click', 'down', function(){
+  data.page++;
+  if(data.page < data.routes.length -1) {
+    data.id = data.routes[data.page].id;
+    view.main.slide('next');
+  } else {
+    view.show('nowLoading');
+    updateRoute(data.routes.length+1, data.page);
+  }
+});
+view.wind.main.on('longClick', 'up', function(){
+  data.page=0;
+  data.id = data.routes[data.page].id;
+  view.main.slide('prev');
+});
+view.wind.main.on('longClick', 'down', function(){
+  data.select.page = 0;
+  data.select.to = data.stations[data.select.page];
+  view.wind.select.to.text(data.select.to);
+  view.show('select');
+});
+view.wind.main.on('longClick', 'select', function(){
+  view.show('nowLoading');
+  updateLastTrain();
+});
+
+//Intreraction LastTrain
+view.wind.last.on('click', 'back', function(){
+  view.show('main');
 });

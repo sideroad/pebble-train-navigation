@@ -8,6 +8,10 @@ var main = new UI.Window({
   scrollable: false,
   backgroundColor: 'white'
 });
+var last = new UI.Window({
+  scrollable: false,
+  backgroundColor: 'white'
+});
 var error = new UI.Card({
   title: 'Data does not exists'
 });
@@ -22,6 +26,7 @@ var select = new UI.Window({
 var View = function(_data){
   data = _data;
   this.main.init();
+  this.last.init();
   this.select.init();
   this.nowLoading.init();
   this.error.init();
@@ -37,6 +42,7 @@ var getHms = function(time){
 };
 var winds = {
   main: main,
+  last: last,
   error: error,
   nowLoading: nowLoading,
   select: select
@@ -50,6 +56,93 @@ View.prototype = {
       }
     });
     winds[target].show();
+    this.displayed = target;
+  },
+  last: {
+    background: {
+      rect: new UI.Rect({
+        position: new Vector2(0, 0),
+        size: new Vector2(144, 168),
+        borderColor: 'black',
+        backgroundColor : 'black'
+      })
+    },
+    separate: {
+      rect: new UI.Rect({
+        position: new Vector2(0, 59),
+        size: new Vector2(144, 2),
+        borderColor: 'white',
+        backgroundColor: 'white'
+      })
+    },
+    from:{
+      text: new JaText({
+        position: new Vector2(0, 0),
+        size: new Vector2(144, 24),
+        color: 'white',
+        backgroundColor : 'black'
+      }),
+      update: function(){
+        this.text.text(data.from);
+      }
+    },
+    leave: {
+      text: new UI.Text({
+        position: new Vector2(0, 24),
+        size: new Vector2(144, 30),
+        font: 'gothic-28-bold',
+        color: 'white',
+        backgroundColor : 'black'
+      }),
+      update: function(){
+        var hms = getHms(data.last.ride - data.walk);
+        this.text.text('Leav: '+ hms);
+      }
+    },
+    displayed: '',
+    route: {
+      text: new UI.Text({
+        position: new Vector2(0, 61),
+        size: new Vector2(144, 70),
+        font: 'gothic-28-bold',
+        textAlign: 'center',
+        color: 'white',
+        backgroundColor : 'black'
+      }),
+      update: function(){
+        var hms = getHms(data.last.ride);
+        var route = data.last.route || {departure: '', arrival: ''};
+        this.text.text('Ride: '+ hms + '\n'+
+                       route.departure + ' -> ' + route.arrival);
+      }
+    },
+    to:{
+      text: new JaText({
+        position: new Vector2(0, 128),
+        size: new Vector2(144, 24),
+        color: 'white',
+        backgroundColor : 'black',
+        borderColor : 'black'
+      }),
+      update: function(){
+        this.text.text(data.to);
+      }
+    },
+    init: function(){
+      // Arranging parts
+      last.add(this.background.rect);
+      last.add(this.from.text);
+      last.add(this.leave.text);
+      last.add(this.separate.rect);
+      last.add(this.route.text);
+      last.add(this.to.text); 
+    },
+    update: function(){
+      this.from.update();
+      this.to.update();
+      this.leave.update();
+      this.route.update();
+    }
   },
   main: {
     background: {
@@ -123,7 +216,6 @@ View.prototype = {
       }
     },
     init: function(){
-      var that = this;
       // Arranging parts
       main.add(this.background.rect);
       main.add(this.from.text);
@@ -131,28 +223,7 @@ View.prototype = {
       main.add(this.separate.rect);
       main.add(this.route.text);
       main.add(this.to.text);
-    
-      //Interaction
-      main.on('click', 'up', function(){
-        if(data.page !== 0) {
-          data.page--;
-          data.id = data.routes[data.page].id;
-          that.slide('next');
-        }
-      });
-      main.on('click', 'down', function(){
-        if(data.page < data.routes.length -1) {
-          data.page++;
-          data.id = data.routes[data.page].id;
-          that.slide('prev');
-        }
-      });
-      main.on('longClick', 'down', function(){
-        data.select.page = 0;
-        data.select.to = data.stations[data.select.page];
-        select.to.text(data.select.to);
-        show('select');
-      });      
+       
     },
     update: function(){
       this.from.update();
@@ -166,11 +237,12 @@ View.prototype = {
       ['leave', 'route'].forEach(function(target){
         var text = that[target].text;
         var pos = text.position();
-        pos.x = (direct==='next'? -1 : 1) * 144;
-        pos.addSelf(pos);
+        var size = text.size();
+        pos.x = (direct==='next'? 1 : -1) * 144;
+        text.position(pos);
         that[target].update();
         pos.x = 0;
-        text.animate({position: pos}, 200);
+        text.animate({position: pos,size: size}, 200);
       });
     }
   },
